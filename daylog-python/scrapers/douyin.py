@@ -1,0 +1,12 @@
+from models import ScrapedItem
+from scrapers.base import PlatformScraper
+
+
+class DouyinScraper(PlatformScraper):
+    """抖音爬虫（占位实现，后期填充）"""
+
+    def platform(self) -> str:
+        return "douyin"
+
+    async def fetch(self, since_id: str | None = None) -> list[ScrapedItem]:
+        raise NotImplementedError("抖音爬虫尚未实现")
