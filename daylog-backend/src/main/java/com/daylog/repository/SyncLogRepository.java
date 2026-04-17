@@ -7,5 +7,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface SyncLogRepository extends JpaRepository<SyncLog, Long> {
-    List<SyncLog> findByPlatformOrderBySyncedAtDesc(String platform, Pageable pageable);
+    List<SyncLog> findByUserIdAndPlatformOrderBySyncedAtDesc(Long userId, String platform, Pageable pageable);
 }

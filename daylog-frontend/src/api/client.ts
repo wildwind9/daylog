@@ -1,11 +1,10 @@
 import axios from 'axios'
 
 const client = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080',
+  baseURL: import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8080' : ''),
   timeout: 10_000,
 })
 
-// 自动携带 JWT
 client.interceptors.request.use((config) => {
   const token = localStorage.getItem('daylog_token')
   if (token) {
@@ -14,11 +13,10 @@ client.interceptors.request.use((config) => {
   return config
 })
 
-// 401 自动跳转登录
 client.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    if (err.response?.status === 401 || err.response?.status === 403) {
       localStorage.removeItem('daylog_token')
       window.location.href = '/login'
     }
@@ -27,3 +25,13 @@ client.interceptors.response.use(
 )
 
 export default client
+
+export const extractApiErrorMessage = (error: unknown, fallback: string) => {
+  if (axios.isAxiosError(error)) {
+    const responseError = error.response?.data?.error
+    if (typeof responseError === 'string' && responseError.trim().length > 0) {
+      return responseError
+    }
+  }
+  return fallback
+}

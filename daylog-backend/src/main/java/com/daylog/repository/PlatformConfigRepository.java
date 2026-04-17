@@ -7,6 +7,6 @@ import java.util.List;
 import java.util.Optional;
 
 public interface PlatformConfigRepository extends JpaRepository<PlatformConfig, Long> {
-    Optional<PlatformConfig> findByPlatform(String platform);
+    Optional<PlatformConfig> findByUserIdAndPlatform(Long userId, String platform);
     List<PlatformConfig> findByEnabledTrue();
 }

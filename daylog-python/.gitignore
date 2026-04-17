@@ -1,0 +1,4 @@
+.browser/
+logs/
+__pycache__/
+*.pyc

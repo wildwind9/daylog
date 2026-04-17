@@ -31,16 +31,21 @@ public class SyncLog {
     @Column(name = "error_msg", columnDefinition = "TEXT")
     private String errorMsg;
 
-    public static SyncLog success(String platform, int newCount) {
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
+
+    public static SyncLog success(Long userId, String platform, int newCount) {
         SyncLog log = new SyncLog();
+        log.userId = userId;
         log.platform = platform;
         log.newCount = newCount;
         log.status = "success";
         return log;
     }
 
-    public static SyncLog failed(String platform, String errorMsg) {
+    public static SyncLog failed(Long userId, String platform, String errorMsg) {
         SyncLog log = new SyncLog();
+        log.userId = userId;
         log.platform = platform;
         log.status = "failed";
         log.errorMsg = errorMsg;

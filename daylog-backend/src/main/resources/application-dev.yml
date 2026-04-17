@@ -1,0 +1,10 @@
+spring:
+  datasource:
+    url: ${DB_JDBC_URL:jdbc:mysql://47.114.84.245:3306/daylog?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai}
+    username: ${DB_USERNAME:daylog_app}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+daylog:
+  python-service:
+    base-url: ${PYTHON_SERVICE_URL:http://127.0.0.1:8000}

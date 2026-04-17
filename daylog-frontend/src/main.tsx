@@ -5,6 +5,8 @@ import { PrivateRoute } from './components/PrivateRoute'
 import LoginPage from './pages/LoginPage'
 import CalendarPage from './pages/CalendarPage'
 import DayPage from './pages/DayPage'
+import WeiboLoginPage from './pages/WeiboLoginPage'
+import WeiboCallbackPage from './pages/WeiboCallbackPage'
 import './index.css'
 
 createRoot(document.getElementById('root')!).render(
@@ -14,6 +16,8 @@ createRoot(document.getElementById('root')!).render(
         <Route path="/login" element={<LoginPage />} />
         <Route path="/" element={<PrivateRoute><CalendarPage /></PrivateRoute>} />
         <Route path="/day/:date" element={<PrivateRoute><DayPage /></PrivateRoute>} />
+        <Route path="/weibo-login" element={<PrivateRoute><WeiboLoginPage /></PrivateRoute>} />
+        <Route path="/weibo-callback" element={<PrivateRoute><WeiboCallbackPage /></PrivateRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

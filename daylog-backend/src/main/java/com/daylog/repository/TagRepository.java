@@ -12,10 +12,10 @@ import java.util.Optional;
 public interface TagRepository extends JpaRepository<Tag, Long> {
     Optional<Tag> findByName(String name);
 
-    // 查询某天所有内容的标签（去重）
     @Query("SELECT DISTINCT t FROM Tag t " +
-           "JOIN ContentTag ct ON ct.tag = t " +
-           "JOIN ContentItem ci ON ct.contentItem = ci " +
-           "WHERE ci.itemDate = :date")
-    List<Tag> findTagsByDate(@Param("date") LocalDate date);
+            "JOIN ContentTag ct ON ct.tag = t " +
+            "JOIN ContentItem ci ON ct.contentItem = ci " +
+            "WHERE ci.userId = :userId AND ci.itemDate = :date")
+    List<Tag> findTagsByUserIdAndDate(@Param("userId") Long userId,
+                                      @Param("date") LocalDate date);
 }

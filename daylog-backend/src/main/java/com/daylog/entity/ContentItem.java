@@ -56,6 +56,12 @@ public class ContentItem {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
+
+    @Column(name = "binding_id")
+    private Long bindingId;
+
     public enum Source {
         weibo, douyin, xiaohongshu, manual
     }

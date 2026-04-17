@@ -20,5 +20,7 @@ class ScrapedItem(BaseModel):
 class ScrapeResult(BaseModel):
     platform: str
     new_count: int
+    fetched_count: int = 0
     status: str                          # success / failed
     error: Optional[str] = None
+    mode: Optional[str] = None

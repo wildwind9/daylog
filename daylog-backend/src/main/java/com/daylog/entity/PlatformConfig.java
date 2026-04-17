@@ -16,7 +16,7 @@ public class PlatformConfig {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 20)
+    @Column(nullable = false, length = 20)
     private String platform;
 
     @Column(nullable = false)
@@ -27,4 +27,7 @@ public class PlatformConfig {
 
     @Column(name = "last_sync")
     private LocalDateTime lastSync;
+
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 }

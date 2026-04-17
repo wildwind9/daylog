@@ -28,4 +28,7 @@ public class DiaryEntry {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt = LocalDateTime.now();
+
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 }
