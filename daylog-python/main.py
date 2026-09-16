@@ -138,7 +138,7 @@ async def scrape(platform: str, userId: int, full: bool = False, bindingId: int 
     scraper = WeiboScraper(user_id=userId, binding=weibo_binding) if platform == "weibo" else SCRAPERS[platform]
 
     try:
-        since_id = None if full else get_latest_source_id(platform, userId, bindingId=bindingId)
+        since_id = None if full else get_latest_source_id(platform, userId, binding_id=bindingId)
         items = await scraper.fetch(since_id=since_id)
 
         if not items:
