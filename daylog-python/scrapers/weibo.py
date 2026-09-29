@@ -93,7 +93,16 @@ class WeiboScraper(PlatformScraper):
         async with async_playwright() as p:
             browser = None
             profile_dir = _get_profile_dir(self.user_id)
-            if _profile_exists(profile_dir):
+            cookie_str = _get_weibo_cookie(self.user_id)
+            # A fresh QR-login cookie beats an old browser profile, whose session may have expired.
+            if _has_valid_cookie(cookie_str):
+                browser = await p.chromium.launch(headless=True)
+                context = await browser.new_context(
+                    user_agent=USER_AGENT,
+                    viewport={"width": 1280, "height": 800},
+                )
+                await context.add_cookies(_parse_cookie_string(cookie_str))
+            elif _profile_exists(profile_dir):
                 context = await p.chromium.launch_persistent_context(
                     str(profile_dir),
                     headless=True,
@@ -101,15 +110,7 @@ class WeiboScraper(PlatformScraper):
                     viewport={"width": 1280, "height": 800},
                 )
             else:
-                cookie_str = _get_weibo_cookie(self.user_id)
-                if not _has_valid_cookie(cookie_str):
-                    raise RuntimeError("微博登录态不存在，请先在首页设置中完成微博登录")
-                browser = await p.chromium.launch(headless=True)
-                context = await browser.new_context(
-                    user_agent=USER_AGENT,
-                    viewport={"width": 1280, "height": 800},
-                )
-                await context.add_cookies(_parse_cookie_string(cookie_str))
+                raise RuntimeError("微博登录态不存在，请先在首页设置中完成微博登录")
 
             try:
                 page = context.pages[0] if context.pages else await context.new_page()
@@ -193,7 +194,7 @@ def get_weibo_login_status(user_id: int) -> dict:
     return {
         "profileExists": _profile_exists(profile_dir),
         "cookieConfigured": cookie_configured,
-        "loginStateReady": True,
+        "loginStateReady": cookie_configured,
         "profileDir": str(profile_dir),
     }
 
@@ -254,7 +255,7 @@ def clear_weibo_login_state(user_id: int) -> dict:
     return {
         "profileExists": False,
         "cookieConfigured": False,
-        "loginStateReady": True,
+        "loginStateReady": False,
         "profileDir": str(profile_dir),
     }
 
@@ -379,7 +380,11 @@ async def get_weibo_qr_login_status(user_id: int, session_id: str) -> dict:
     if retcode == 20000000:
         login_url = ((payload.get("data") or {}).get("url")) or ""
         if login_url:
-            final_response = session.client.get(login_url)
+            # Without browser navigation headers passport answers 432 and sets no SUB cookie.
+            final_response = session.client.get(
+                login_url,
+                headers={**_weibo_login_signin_headers(), "referer": session.login_signin_url},
+            )
             logger.info(
                 "weibo qr final login user_id=%s session_id=%s http_status=%s cookie_keys=%s",
                 user_id,
@@ -387,9 +392,8 @@ async def get_weibo_qr_login_status(user_id: int, session_id: str) -> dict:
                 final_response.status_code,
                 list(session.client.cookies.keys()),
             )
-        cookies = dict(session.client.cookies)
-        cookie_str = "; ".join(f"{key}={value}" for key, value in cookies.items())
-        if cookie_str:
+        cookie_str = _cookie_string_from_client(session.client.cookies)
+        if _has_valid_cookie(cookie_str):
             _persist_weibo_cookie(cookie_str, user_id)
             uid = await _resolve_uid_from_login_state(user_id)
             session.uid = uid
@@ -405,7 +409,7 @@ async def get_weibo_qr_login_status(user_id: int, session_id: str) -> dict:
             )
         else:
             session.status = "failed"
-            session.message = "微博扫码登录成功，但未获取到可用 cookie"
+            session.message = "微博扫码已确认，但未获取到登录凭证（SUB），请重新生成二维码再试"
             logger.warning("weibo qr missing cookie user_id=%s session_id=%s", user_id, session_id)
     elif retcode == 50114015:
         session.status = "expired"
@@ -1175,7 +1179,23 @@ def _format_cookie_string(cookies: list[dict]) -> str:
 
 
 def _has_valid_cookie(cookie_str: str) -> bool:
-    return bool(cookie_str and cookie_str != "your-weibo-cookie-here")
+    """A usable Weibo web login state must carry the SUB session cookie."""
+    if not cookie_str or cookie_str == "your-weibo-cookie-here":
+        return False
+    names = {part.split("=", 1)[0].strip() for part in cookie_str.split(";") if "=" in part}
+    return "SUB" in names
+
+
+def _cookie_string_from_client(cookies) -> str:
+    """Flatten an httpx cookie jar; same-named cookies on several domains prefer weibo.com."""
+    jar = getattr(cookies, "jar", None)
+    if jar is None:
+        values = dict(cookies)
+    else:
+        values = {}
+        for cookie in sorted(jar, key=lambda c: (c.domain or "").endswith("weibo.com")):
+            values[cookie.name] = cookie.value
+    return "; ".join(f"{key}={value}" for key, value in values.items())
 
 
 def _get_profile_base_dir() -> Path:
