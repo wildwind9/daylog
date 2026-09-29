@@ -29,7 +29,9 @@ def main() -> None:
     client.connect(args.host, username=args.user, password=args.password, timeout=30)
     try:
         script = f"""
+set -a; . /opt/daylog/backend/daylog-backend.env; set +a
 /opt/daylog/python/venv/bin/python - <<'PY'
+import os
 import json
 import urllib.parse
 import urllib.request
@@ -37,7 +39,7 @@ import pymysql
 
 probe_ids = [{quoted_ids}]
 
-conn = pymysql.connect(host='127.0.0.1', user='root', password='CHWyZYH@IgK2#7eTc8xr46MdCYFU', database='daylog', charset='utf8mb4')
+conn = pymysql.connect(host=os.environ.get('DB_HOST', '127.0.0.1'), user=os.environ['DB_USERNAME'], password=os.environ['DB_PASSWORD'], database=os.environ.get('DB_NAME', 'daylog'), charset='utf8mb4')
 try:
     with conn.cursor() as cur:
         cur.execute("SELECT access_token, weibo_uid, screen_name FROM weibo_binding WHERE user_id=1 AND active=1 ORDER BY id DESC LIMIT 1")
