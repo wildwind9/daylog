@@ -2379,3 +2379,21 @@ button { cursor: pointer; border: none; background: none; font: inherit; }
     width: min(26vw, 84px);
   }
 }
+
+/* ─── Site Footer (ICP Beian) ─────────────────────────── */
+.site-footer {
+  text-align: center;
+  padding: 16px calc(16px + var(--safe-right)) calc(16px + var(--safe-bottom)) calc(16px + var(--safe-left));
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.site-footer a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.site-footer a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
