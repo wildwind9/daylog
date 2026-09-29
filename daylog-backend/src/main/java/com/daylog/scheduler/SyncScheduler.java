@@ -12,6 +12,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import java.time.Duration;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -24,6 +26,10 @@ public class SyncScheduler {
 
     @Value("${daylog.python-service.base-url}")
     private String pythonServiceUrl;
+
+    /** Must exceed the Python-side SCRAPE_TIMEOUT_SECONDS (900s) so Python can report its own timeout first. */
+    @Value("${daylog.python-service.scrape-timeout:PT20M}")
+    private Duration scrapeTimeout;
 
     @Scheduled(cron = "0 0 4 * * *", zone = "Asia/Shanghai")
     public void syncAllEnabledPlatforms() {
@@ -42,7 +48,7 @@ public class SyncScheduler {
                         .uri(path)
                         .retrieve()
                         .bodyToMono(String.class)
-                        .block();
+                        .block(scrapeTimeout);
 
                 log.info("Sync complete for {}: {}", platform, result);
                 syncLogRepository.save(SyncLog.success(config.getUserId(), platform, 0));

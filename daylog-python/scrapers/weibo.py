@@ -1,4 +1,5 @@
 import base64
+import asyncio
 import json
 import os
 import re
@@ -29,6 +30,16 @@ USER_AGENT = (
 logger = logging.getLogger(__name__)
 
 QR_SESSION_TTL_SECONDS = 180
+
+# page.evaluate() has no built-in timeout; if the renderer dies (e.g. OOM-killed)
+# the await never resolves. Bound every in-page fetch.
+EVALUATE_TIMEOUT_SECONDS = 30
+# Upper bound on /ajax/statuses/mymblog pages per sync, to cap memory and runtime.
+MAX_STATUS_PAGES = 200
+
+
+async def _evaluate(page, expression: str, arg=None):
+    return await asyncio.wait_for(page.evaluate(expression, arg), timeout=EVALUATE_TIMEOUT_SECONDS)
 
 
 @dataclass
@@ -107,30 +118,8 @@ class WeiboScraper(PlatformScraper):
                 if not uid:
                     raise RuntimeError("微博登录态已失效，请在首页设置中重新登录微博")
 
-                all_statuses: list[dict] = []
                 since_int = int(since_id) if since_id else None
-                for pg in range(1, 2000):
-                    data = await _fetch_status_page(page, uid, pg)
-                    if data is None and pg == 1:
-                        await page.wait_for_timeout(1500)
-                        data = await _fetch_status_page(page, uid, pg)
-                    if data is None:
-                        break
-                    lst = (data.get("data") or {}).get("list", [])
-                    if not lst:
-                        break
-                    hit_since = False
-                    for status in lst:
-                        try:
-                            sid_int = int(status.get("id", 0))
-                        except (TypeError, ValueError):
-                            continue
-                        if since_int and sid_int <= since_int:
-                            hit_since = True
-                            break
-                        all_statuses.append(status)
-                    if hit_since:
-                        break
+                all_statuses = await _collect_web_statuses(page, uid, since_int)
 
                 items: list[ScrapedItem] = []
                 for status in all_statuses:
@@ -704,7 +693,8 @@ async def _fetch_via_public_timeline_http(uid: str, since_id: str | None) -> lis
 
 async def _fetch_public_status_page(page, uid: str, cursor: str | None) -> dict | None:
     try:
-        raw = await page.evaluate(
+        raw = await _evaluate(
+            page,
             """
             async ({ uid, cursor }) => {
               const url = new URL("/api/container/getIndex", location.origin);
@@ -962,9 +952,46 @@ async def _parse_status(page, status: dict) -> ScrapedItem | None:
         return None
 
 
+async def _collect_web_statuses(page, uid: str, since_int: int | None) -> list[dict]:
+    """Page through /ajax/statuses/mymblog until since_id, an empty/repeated page, or MAX_STATUS_PAGES."""
+    all_statuses: list[dict] = []
+    seen_ids: set[int] = set()
+    for pg in range(1, MAX_STATUS_PAGES + 1):
+        data = await _fetch_status_page(page, uid, pg)
+        if data is None and pg == 1:
+            await asyncio.sleep(1.5)
+            data = await _fetch_status_page(page, uid, pg)
+        if data is None:
+            break
+        lst = (data.get("data") or {}).get("list", [])
+        if not lst:
+            break
+        hit_since = False
+        page_added = 0
+        for status in lst:
+            try:
+                sid_int = int(status.get("id", 0))
+            except (TypeError, ValueError):
+                continue
+            if sid_int in seen_ids:
+                continue
+            seen_ids.add(sid_int)
+            if since_int and sid_int <= since_int:
+                hit_since = True
+                break
+            all_statuses.append(status)
+            page_added += 1
+        if hit_since or page_added == 0:
+            break
+    else:
+        logger.warning("Weibo web sync stopped at MAX_STATUS_PAGES=%s for uid=%s", MAX_STATUS_PAGES, uid)
+    return all_statuses
+
+
 async def _fetch_status_page(page, uid: str, page_number: int) -> dict | None:
     try:
-        raw = await page.evaluate(
+        raw = await _evaluate(
+            page,
             """
             async ({ uid, pageNumber }) => {
               const url = new URL("/ajax/statuses/mymblog", location.origin);
@@ -1010,7 +1037,8 @@ def _is_long_status(status: dict, list_text: str) -> bool:
 
 async def _fetch_long_text(page, status_id: str) -> str | None:
     try:
-        return await page.evaluate(
+        return await _evaluate(
+            page,
             """
             async (statusId) => {
               const response = await fetch(

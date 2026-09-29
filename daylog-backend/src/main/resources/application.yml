@@ -1,6 +1,10 @@
 spring:
   profiles:
     default: dev
+  task:
+    scheduling:
+      pool:
+        size: 2
   sql:
     init:
       mode: always

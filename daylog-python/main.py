@@ -41,6 +41,8 @@ SCRAPERS: dict[str, PlatformScraper] = {
     "xiaohongshu": XiaohongshuScraper(),
 }
 ANALYZABLE_SOURCES = {*SCRAPERS.keys(), "manual"}
+# Hard cap for a single /scrape call. Must stay below the backend's client timeout.
+SCRAPE_TIMEOUT_SECONDS = int(os.getenv("SCRAPE_TIMEOUT_SECONDS", "900"))
 
 
 @asynccontextmanager
@@ -139,7 +141,10 @@ async def scrape(platform: str, userId: int, full: bool = False, bindingId: int 
 
     try:
         since_id = None if full else get_latest_source_id(platform, userId, binding_id=bindingId)
-        items = await scraper.fetch(since_id=since_id)
+        try:
+            items = await asyncio.wait_for(scraper.fetch(since_id=since_id), timeout=SCRAPE_TIMEOUT_SECONDS)
+        except asyncio.TimeoutError:
+            raise RuntimeError(f"抓取超时（超过 {SCRAPE_TIMEOUT_SECONDS} 秒），已中止")
 
         if not items:
             return ScrapeResult(platform=platform, new_count=0, fetched_count=0, status="success")
